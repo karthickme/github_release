@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    # Only run when a PR is merged (not direct pushes)
+    if: github.event.head_commit.message != '' && !startsWith(github.event.head_commit.message, 'Merge branch')
+
+    steps:
+      # ── 1. Full history checkout (required by GitVersion) ──────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── 2. Install GitVersion ───────────────────────────────────────────────
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: '6.x'
+
+      # ── 3. Calculate version ────────────────────────────────────────────────
+      - name: Determine version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v3
+        with:
+          useConfigFile: true
+          configFilePath: GitVersion.yml
+
+      # ── 4. Display versions (useful for debugging) ──────────────────────────
+      - name: Display GitVersion outputs
+        run: |
+          echo "SemVer       : ${{ steps.gitversion.outputs.semVer }}"
+          echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
+          echo "NuGetVersion : ${{ steps.gitversion.outputs.nuGetVersion }}"
+          echo "FullSemVer   : ${{ steps.gitversion.outputs.fullSemVer }}"
+
+      # ── 5. Generate release notes (commits since last tag → HEAD) ───────────
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "No previous tag found – listing all commits."
+            NOTES=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            echo "Previous tag: $PREVIOUS_TAG"
+            NOTES=$(git log --pretty=format:"- %s (%h)" ${PREVIOUS_TAG}..HEAD)
+          fi
+          # Write to a file to safely handle multi-line output
+          echo "$NOTES" > release_notes.txt
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+      # ── 6. Create and push the Git tag ─────────────────────────────────────
+      - name: Create Git tag
+        run: |
+          TAG="v${{ steps.gitversion.outputs.semVer }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      # ── 7. Create the GitHub Release ────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.gitversion.outputs.semVer }}
+          name: Release v${{ steps.gitversion.outputs.semVer }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
