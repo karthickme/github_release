@@ -26,7 +26,10 @@ jobs:
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3
         with:
-          versionSpec: '6.x'
+          versionSpec: '5.x'
+
+      - name: Diagnostic GitVersion
+        run: dotnet-gitversion /output json /l console /verbosity Diagnostic
 
       # ── 3. Calculate version ────────────────────────────────────────────────
       - name: Determine version
