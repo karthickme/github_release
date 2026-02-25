@@ -125,7 +125,7 @@ Activates parsing of commit messages against the bump-rule patterns below.
 ### `major-version-bump-message`
 
 ```yaml
-major-version-bump-message: "^(feat|fix|refactor|perf|style|test|docs|chore)(\([a-z0-9\-\.]+\))?!:|^BREAKING CHANGE:"
+major-version-bump-message: "^(breaking|perf|style|major)(\([a-z0-9\-\.]+\))?!:|^BREAKING CHANGE:"
 ```
 
 A regex matched against commit messages. Any matching commit triggers a **Major** bump (`1.x.x → 2.0.0`).
@@ -142,7 +142,7 @@ The pattern matches two forms of breaking change notation defined by the Convent
 ### `minor-version-bump-message`
 
 ```yaml
-minor-version-bump-message: "^(feat)(\([a-z0-9\-\.]+\))?:"
+minor-version-bump-message: "^(feat|fix|refactor|minor)(\([a-z0-9\-\.]+\))?:"
 ```
 
 Any commit starting with `feat:` or `feat(scope):` triggers a **Minor** bump (`x.1.x → x.2.0`).
@@ -157,7 +157,7 @@ Any commit starting with `feat:` or `feat(scope):` triggers a **Minor** bump (`x
 ### `patch-version-bump-message`
 
 ```yaml
-patch-version-bump-message: "^(fix|perf|refactor|style|test|docs|chore)(\([a-z0-9\-\.]+\))?:"
+patch-version-bump-message: "^(patch|perf|style|docs|chore)(\([a-z0-9\-\.]+\))?:"
 ```
 
 Commits starting with `fix:`, `perf:`, `refactor:`, `style:`, `test:`, `docs:`, or `chore:` trigger a **Patch** bump (`x.x.1 → x.x.2`).
