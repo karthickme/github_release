@@ -2,6 +2,8 @@
 
 This document explains every setting in [`GitVersion.yml`](./GitVersion.yml) and why it is configured the way it is for this project.
 
+> **GitVersion version:** 6.x (configured for `gittools/actions/gitversion/setup@v3` with `versionSpec: '6.x'`)
+
 ---
 
 ## Table of Contents
@@ -18,6 +20,7 @@ This document explains every setting in [`GitVersion.yml`](./GitVersion.yml) and
 4. [Ignore](#4-ignore)
 5. [Merge Message Formats](#5-merge-message-formats)
 6. [How Versions Flow Across Branches](#6-how-versions-flow-across-branches)
+7. [GitVersion v5 → v6 Migration Notes](#7-gitversion-v5--v6-migration-notes)
 
 ---
 
@@ -56,16 +59,18 @@ Controls the `AssemblyFileVersion` attribute separately from `AssemblyVersion`. 
 
 ---
 
-### `mode`
+### `workflow`
 
 ```yaml
-mode: ContinuousDelivery
+workflow: ContinuousDelivery
 ```
 
 Defines the global versioning strategy.
 
-| Mode | Behaviour |
-|------|-----------|
+> ⚠️ **v6 change:** This key was called `mode` in GitVersion v5. It is now `workflow` in v6. Using the old `mode` key causes GitVersion to output `undefined` and fail JSON parsing.
+
+| Workflow | Behaviour |
+|----------|-----------|
 | `ContinuousDelivery` | The version is calculated from tags + commit messages. Each commit on a non-mainline branch gets a pre-release label and build metadata. |
 | `ContinuousDeployment` | Similar to `ContinuousDelivery` but every commit increments the build number, suitable for pipelines that deploy every commit. |
 | `Mainline` | Versions are inferred purely from the git graph without requiring tags. Every merge to `main` is treated as a release. |
@@ -86,13 +91,15 @@ The prefix GitVersion expects on Git tags when looking for version baselines. Wi
 
 ---
 
-### `continuous-delivery-fallback-tag`
+### `label`
 
 ```yaml
-continuous-delivery-fallback-tag: ci
+label: ci
 ```
 
 When no tag exists on the branch and GitVersion cannot compute a proper pre-release label, this value is used as the fallback label.
+
+> ⚠️ **v6 change:** This key was called `continuous-delivery-fallback-tag` in GitVersion v5. It is now `label` in v6.
 
 **Example output:** `0.1.0-ci.1`
 
@@ -125,7 +132,7 @@ Activates parsing of commit messages against the bump-rule patterns below.
 ### `major-version-bump-message`
 
 ```yaml
-major-version-bump-message: "^(breaking|perf|style|major)(\([a-z0-9\-\.]+\))?!:|^BREAKING CHANGE:"
+major-version-bump-message: "^(breaking|perf|style|major)(\\([a-z0-9\\-\\.]+\\))?!:|^BREAKING CHANGE:"
 ```
 
 A regex matched against commit messages. Any matching commit triggers a **Major** bump (`1.x.x → 2.0.0`).
@@ -134,7 +141,7 @@ The pattern matches two forms of breaking change notation defined by the Convent
 
 | Form | Example |
 |------|---------|
-| `type!: description` | `feat!: remove legacy auth API` |
+| `type!: description` | `breaking!: remove legacy auth API` |
 | `BREAKING CHANGE:` in footer | `BREAKING CHANGE: renamed config property` |
 
 ---
@@ -142,10 +149,10 @@ The pattern matches two forms of breaking change notation defined by the Convent
 ### `minor-version-bump-message`
 
 ```yaml
-minor-version-bump-message: "^(feat|fix|refactor|minor)(\([a-z0-9\-\.]+\))?:"
+minor-version-bump-message: "^(feat|fix|refactor|minor)(\\([a-z0-9\\-\\.]+\\))?:"
 ```
 
-Any commit starting with `feat:` or `feat(scope):` triggers a **Minor** bump (`x.1.x → x.2.0`).
+Any commit starting with `feat:`, `fix:`, `refactor:`, or `minor:` (with optional scope) triggers a **Minor** bump (`x.1.x → x.2.0`).
 
 | Example commit | Bump |
 |----------------|------|
@@ -157,14 +164,14 @@ Any commit starting with `feat:` or `feat(scope):` triggers a **Minor** bump (`x
 ### `patch-version-bump-message`
 
 ```yaml
-patch-version-bump-message: "^(patch|perf|style|docs|chore)(\([a-z0-9\-\.]+\))?:"
+patch-version-bump-message: "^(patch|perf|style|docs|chore)(\\([a-z0-9\\-\\.]+\\))?:"
 ```
 
-Commits starting with `fix:`, `perf:`, `refactor:`, `style:`, `test:`, `docs:`, or `chore:` trigger a **Patch** bump (`x.x.1 → x.x.2`).
+Commits starting with `patch:`, `perf:`, `style:`, `docs:`, or `chore:` trigger a **Patch** bump (`x.x.1 → x.x.2`).
 
 | Example commit | Bump |
 |----------------|------|
-| `fix: resolve null pointer on startup` | `x.x.Z` Patch |
+| `patch: resolve null pointer on startup` | `x.x.Z` Patch |
 | `perf: cache database queries` | `x.x.Z` Patch |
 
 ---
@@ -172,7 +179,7 @@ Commits starting with `fix:`, `perf:`, `refactor:`, `style:`, `test:`, `docs:`, 
 ### `no-bump-message`
 
 ```yaml
-no-bump-message: "^(chore|docs|style)(\([a-z0-9\-\.]+\))?:"
+no-bump-message: "^(chore|docs|style)(\\([a-z0-9\\-\\.]+\\))?:"
 ```
 
 > **Note:** This overlaps with `patch-version-bump-message`. In practice, `commit-message-incrementing` precedence means the first matching rule wins. If you want `chore:`, `docs:`, and `style:` commits to produce **no** version bump at all, this setting is evaluated as a "skip bump" override when the patterns conflict.
@@ -188,15 +195,16 @@ Each branch key can override any of the global settings. The keys are matched to
 | Setting | Description |
 |---------|-------------|
 | `regex` | Pattern matched against the full branch name |
-| `mode` | Versioning mode for this branch |
-| `tag` | Pre-release label appended after the version (empty string = no label) |
+| `workflow` | Versioning workflow for this branch (**v6**: was `mode` in v5) |
+| `label` | Pre-release label appended after the version (empty string = no label) (**v6**: was `tag` in v5) |
 | `increment` | Default bump type if no commit message rule applies |
 | `prevent-increment-of-merged-branch-version` | If `true`, the version from the source branch is preserved rather than bumped again after merge |
 | `track-merge-target` | If `true`, this branch tracks the version of its merge target |
-| `tracks-release-branches` | If `true`, this branch follows version numbers from release branches |
 | `is-release-branch` | Marks the branch as a release branch |
 | `is-mainline` | Marks the branch as the canonical production line |
 | `source-branches` | Declares which branches are valid parents of this branch |
+
+> ⚠️ **v6 change:** The per-branch `tracks-release-branches` key was **removed** in GitVersion v6. Remove it from any branch config to avoid parse errors.
 
 ---
 
@@ -205,19 +213,18 @@ Each branch key can override any of the global settings. The keys are matched to
 ```yaml
 main:
   regex: ^main$
-  mode: ContinuousDelivery
-  tag: ''
+  workflow: ContinuousDelivery
+  label: ''
   increment: Patch
   prevent-increment-of-merged-branch-version: true
   track-merge-target: false
-  tracks-release-branches: false
   is-release-branch: true
   is-mainline: true
 ```
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| `tag` | `''` (empty) | Produces clean versions like `1.2.3` with no pre-release suffix — this is the production release branch |
+| `label` | `''` (empty) | Produces clean versions like `1.2.3` with no pre-release suffix — this is the production release branch |
 | `prevent-increment-of-merged-branch-version` | `true` | When a `development` branch at `1.1.0-alpha.3` merges in, `main` adopts `1.1.0` without bumping again |
 | `is-mainline` | `true` | Tells GitVersion this is the canonical history line; all version baselines ultimately trace back here |
 | `is-release-branch` | `true` | Enables tracking of release tags on this branch |
@@ -229,12 +236,11 @@ main:
 ```yaml
 development:
   regex: ^development$
-  mode: ContinuousDelivery
-  tag: alpha
+  workflow: ContinuousDelivery
+  label: alpha
   increment: Minor
   prevent-increment-of-merged-branch-version: false
   track-merge-target: true
-  tracks-release-branches: true
   is-release-branch: false
   source-branches:
     - main
@@ -242,10 +248,9 @@ development:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| `tag` | `alpha` | Version looks like `1.2.0-alpha.5` — clearly pre-production |
+| `label` | `alpha` | Version looks like `1.2.0-alpha.5` — clearly pre-production |
 | `increment` | `Minor` | New features are integrated here, so the default bump is Minor |
 | `track-merge-target` | `true` | Stays in sync with `main`'s version when `main` is merged back in (e.g. after a hotfix) |
-| `tracks-release-branches` | `true` | Aware of version numbers published from release/main branch |
 | `source-branches` | `[main]` | `development` is always branched from or merges originate from `main` |
 
 ---
@@ -255,12 +260,11 @@ development:
 ```yaml
 test:
   regex: ^test$
-  mode: ContinuousDelivery
-  tag: beta
+  workflow: ContinuousDelivery
+  label: beta
   increment: Patch
   prevent-increment-of-merged-branch-version: false
   track-merge-target: false
-  tracks-release-branches: false
   is-release-branch: false
   source-branches:
     - development
@@ -268,7 +272,7 @@ test:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| `tag` | `beta` | Version looks like `1.2.0-beta.2` — code is in QA/staging |
+| `label` | `beta` | Version looks like `1.2.0-beta.2` — code is in QA/staging |
 | `increment` | `Patch` | Only stabilisation/bug fixes are expected here, so Patch is appropriate |
 | `source-branches` | `[development]` | `test` always receives code promoted from `development` |
 
@@ -279,12 +283,11 @@ test:
 ```yaml
 hotfix:
   regex: ^hotfix[/-]
-  mode: ContinuousDelivery
-  tag: hotfix
+  workflow: ContinuousDelivery
+  label: hotfix
   increment: Patch
   prevent-increment-of-merged-branch-version: false
   track-merge-target: false
-  tracks-release-branches: false
   is-release-branch: false
   source-branches:
     - main
@@ -293,7 +296,7 @@ hotfix:
 | Setting | Value | Why |
 |---------|-------|-----|
 | `regex` | `^hotfix[/-]` | Matches `hotfix/login-crash` or `hotfix-login-crash` |
-| `tag` | `hotfix` | Version looks like `1.2.4-hotfix.1` while the fix is being developed |
+| `label` | `hotfix` | Version looks like `1.2.4-hotfix.1` while the fix is being developed |
 | `increment` | `Patch` | Hotfixes should only ever increment the Patch component |
 | `source-branches` | `[main]` | Hotfixes branch directly from `main` and merge back to `main` (and optionally `development`) |
 
@@ -304,12 +307,11 @@ hotfix:
 ```yaml
 feature:
   regex: ^feature[/-]
-  mode: ContinuousDelivery
-  tag: feature
+  workflow: ContinuousDelivery
+  label: feature
   increment: Minor
   prevent-increment-of-merged-branch-version: false
   track-merge-target: false
-  tracks-release-branches: false
   is-release-branch: false
   source-branches:
     - development
@@ -318,7 +320,7 @@ feature:
 | Setting | Value | Why |
 |---------|-------|-----|
 | `regex` | `^feature[/-]` | Matches `feature/user-auth` or `feature-user-auth` |
-| `tag` | `feature` | Version looks like `1.3.0-feature.7` |
+| `label` | `feature` | Version looks like `1.3.0-feature.7` |
 | `increment` | `Minor` | Features are new functionality — the default bump aligns with Minor |
 | `source-branches` | `[development]` | All feature work originates from and merges back into `development` |
 
@@ -329,8 +331,8 @@ feature:
 ```yaml
 pull-request:
   regex: ^(pull|pull\-requests|pr)[/-]
-  mode: ContinuousDelivery
-  tag: PullRequest
+  workflow: ContinuousDelivery
+  label: PullRequest
   increment: Inherit
   track-merge-target: false
   is-release-branch: false
@@ -344,7 +346,7 @@ pull-request:
 | Setting | Value | Why |
 |---------|-------|-----|
 | `regex` | Matches GitHub's internal PR ref format (`refs/pull/123/merge`) | Allows GitVersion to version the temporary merge commit that GitHub creates for PRs |
-| `tag` | `PullRequest` | Version looks like `1.2.0-PullRequest.123` |
+| `label` | `PullRequest` | Version looks like `1.2.0-PullRequest.123` |
 | `increment` | `Inherit` | Inherits the increment from the source branch so the PR version is consistent with what it will produce after merging |
 
 ---
@@ -391,3 +393,26 @@ feature/login        └──> 1.1.0-feature.1 → 1.1.0-feature.3
 - When `development` is promoted to `test`, it becomes a `beta` build.
 - When a PR from `development` (or `test`) is merged to `main`, the release workflow fires, calculates `v1.1.0`, creates the tag, and publishes the GitHub Release.
 - `hotfix/*` branches directly off `main`, produces `hotfix` builds, and merges back to `main` for an immediate Patch release.
+
+---
+
+## 7. GitVersion v5 → v6 Migration Notes
+
+This config was updated to be compatible with **GitVersion 6.x** (`gittools/actions/gitversion/setup@v3`, `versionSpec: '6.x'`). Using v5 keys with a v6 tool causes the tool to output `undefined` instead of JSON, resulting in the error:
+
+```
+Error: GitVersion output is not valid JSON
+dotnet-gitversion Output:
+-------------------
+undefined
+-------------------
+```
+
+### Key renames
+
+| v5 key (old) | v6 key (new) | Scope |
+|---|---|---|
+| `mode` | `workflow` | Global & per-branch |
+| `continuous-delivery-fallback-tag` | `label` | Global |
+| `tag` | `label` | Per-branch |
+| `tracks-release-branches` | **Removed** | Per-branch |
