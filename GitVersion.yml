@@ -1,6 +1,6 @@
-mode: Mainline
-tag-prefix: "[vV]"
+tag-prefix: '[vV]?'
 increment: Inherit
+version-in-branch-pattern: (?<version>[vV]?\d+(\.\d+)?(\.\d+)?).*
 major-version-bump-message: '\+semver:\s?(breaking|major)'
 minor-version-bump-message: '\+semver:\s?(feature|minor)'
 patch-version-bump-message: '\+semver:\s?(fix|patch)'
