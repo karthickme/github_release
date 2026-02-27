@@ -1,7 +1,6 @@
 # Project Name
 
-> Replace this with a short description of your project.
-moved to version 6.6
+> Replace this with a short description of your project
 
 ## Branching Strategy
 
